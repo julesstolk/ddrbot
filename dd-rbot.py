@@ -114,8 +114,8 @@ async def startmatch(ctx):
                     playerselectoptions.remove(item)
                     matchplayer = str(item.label)
                     break
-            newChannel = await discord.guild.create_text_channel(str(interaction.user)[0:-5] + matchplayer, category="784917482619404369", position = 5)
-            await interaction.response.edit_message(f"Created channel {newChannel}")
+            newChannel = await interaction.guild.create_text_channel("`" + str(interaction.user)[0:-5] + "-" + matchplayer + "`", category=interaction.channel.category, position = 9)
+            await interaction.response.edit_message(content=f"Created channel {newChannel}")
 
         @discord.ui.button(label="Add myself", style=discord.ButtonStyle.primary)
 
