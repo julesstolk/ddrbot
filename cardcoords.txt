@@ -1,0 +1,16 @@
+x = 69 gap at both sides!!!
+y = 76 gap at both sides!!!
+
+
+x difference is 711 between cards
+a1 x = 370  y = 257
+a2 x = 1081 y = 257
+a3 x = 1792 y = 257
+a4
+a5
+
+b1
+b2
+b3
+b4
+b5

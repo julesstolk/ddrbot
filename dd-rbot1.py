@@ -23,7 +23,6 @@ boardcomps = [
 
 boardmessage = ""
 
-font = ImageFont.truetype("assets/quicksand.ttf", 45)
 
 def load(channel):
     channel = str(channel)
@@ -49,9 +48,6 @@ def boardgen(channel):
 +----------------------------------------------------------------------------------------------+
 ```'''
     return output
-
-def to_int(str):
-    return int(str)
 
 def savestart():
    with open("start.json", "w") as f:
@@ -186,7 +182,6 @@ def playcomp(int, card):
             return f"You don't have {card} in your hand"
     else:
         return "You don't have enough space on your board"
-
 
 def generateboard(channel):
     bg = Image.open("assets/bgcards.png")
