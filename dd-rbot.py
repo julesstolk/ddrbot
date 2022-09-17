@@ -7,7 +7,6 @@ from discord.ext import commands
 bot = discord.Bot()
 bot = commands.Bot(command_prefix="=")
 boardmessage = ""
-openmatches = []
 playerselectoptions = [discord.SelectOption(label="Don't press please :D", description="Placeholder else the code'll break")]
 
 def load(channel):
@@ -58,10 +57,6 @@ def makeBoardASCII(channel):
 #                 ]
 #             ]
 
-def optionsselect():
-    print("e")
-    return playerselectoptions
-
 class buttonBoard(discord.ui.View):
     global boardmessage
     @discord.ui.button(label="See", style=discord.ButtonStyle.primary)
@@ -83,23 +78,23 @@ class seeBoard(discord.ui.View):
         temp = mktemp(str(interaction.user)[0:-5].lower(), P1, P2)
         await interaction.response.send_message(game['deck' + temp], ephemeral = True)
 
-class choosePlayers(discord.ui.View, playerselectoptions):
-    playerselectoptions = [discord.SelectOption(label="Don't press please :D", description="Placeholder else the code'll break")]
-    for item in openmatches:
-        playerselectoptions.append(discord.SelectOption(label=item))
+# class choosePlayers(discord.ui.View, playerselectoptions):
+#     playerselectoptions = [discord.SelectOption(label="Don't press please :D", description="Placeholder else the code'll break")]
+#     for item in openmatches:
+#         playerselectoptions.append(discord.SelectOption(label=item))
     
-    @discord.ui.select(placeholder="Choose player", min_values=1, max_values=1, options = optionsselect())
+#     @discord.ui.select(placeholder="Choose player", min_values=1, max_values=1, options = optionsselect())
 
-    async def select_callback(self, select, interaction):
-        playerselectoptions.remove(select.values[0])
-        newChannel = await interaction.create_text_channel(str(interaction.user)[0:-5] + str(select.values[0]), position = 5)
-        await interaction.response.edit_message(f"Created channel {newChannel}")
+#     async def select_callback(self, select, interaction):
+#         playerselectoptions.remove(select.values[0])
+#         newChannel = await interaction.create_text_channel(str(interaction.user)[0:-5] + str(select.values[0]), position = 5)
+#         await interaction.response.edit_message(f"Created channel {newChannel}")
 
-    @discord.ui.button(label="Add myself", style=discord.ButtonStyle.primary)
+#     @discord.ui.button(label="Add myself", style=discord.ButtonStyle.primary)
 
-    async def button_callback(self, button, interaction):
-        openmatches.append(str(interaction.user)[0:-5])
-        await interaction.response.edit_message(content="Added you to the open matches list", view=None)
+#     async def button_callback(self, button, interaction):
+#         openmatches.append(str(interaction.user)[0:-5])
+#         await interaction.response.edit_message(content="Added you to the open matches list", view=None)
 
 @bot.slash_command()
 async def start(ctx):
@@ -109,7 +104,26 @@ async def start(ctx):
 
 @bot.slash_command()
 async def startmatch(ctx):
-    await ctx.respond(f"These players want to play a match:\n``{openmatches}``", view = choosePlayers())
+    class choosePlayers(discord.ui.View):
+        
+        @discord.ui.select(placeholder="Choose player", min_values=1, max_values=1, options = playerselectoptions)
+
+        async def select_callback(self, select, interaction):
+            for item in playerselectoptions:
+                if item.label == select.values[0]:
+                    playerselectoptions.remove(item)
+                    matchplayer = str(item.label)
+                    break
+            newChannel = await discord.guild.create_text_channel(str(interaction.user)[0:-5] + matchplayer, category="784917482619404369", position = 5)
+            await interaction.response.edit_message(f"Created channel {newChannel}")
+
+        @discord.ui.button(label="Add myself", style=discord.ButtonStyle.primary)
+
+        async def button_callback(self, button, interaction):
+            playerselectoptions.append(discord.SelectOption(label=str(interaction.user)[0:-5]))
+            await interaction.response.edit_message(content="Added you to the open matches list", view=None)
+    
+    await ctx.respond(f"These players want to play a match:", view = choosePlayers())
 
 
 @bot.slash_command()
@@ -150,4 +164,4 @@ async def seecard(ctx, card):
 
 
 
-bot.run("NzIxNDAzNzgzODY2NzQ0OTM1.XuUBoQ.joBNUjDjhEHvloUIqeWZe3eIaRY")
+bot.run("NzIxNDAzNzgzODY2NzQ0OTM1.GUsJE2.-6T6MHzfWGirEEsle5YBkWVS6jeYWn_u5r7Di8")
