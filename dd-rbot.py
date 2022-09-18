@@ -3,7 +3,7 @@ import os
 from PIL import Image, ImageDraw, ImageFont
 import discord
 from discord.ext import commands
-
+import random
 bot = discord.Bot()
 bot = commands.Bot(command_prefix="=")
 playerselectoptions = [discord.SelectOption(label="Don't press please :D", description="Placeholder else the code'll break")]
@@ -81,11 +81,17 @@ class buttonBoard(discord.ui.View):
     @discord.ui.button(label="Draw", style=discord.ButtonStyle.primary)
 
     async def draw_callback:
-        game{}
-
+        player = str(interaction.user)[0:-5]
+        drawncard = random.choice(game["deck" + player])
+        game["deck" + player].remove(drawncard)
+        game["hand" + player].append(drawncard)
+        await interaction.response.send_message(content=f"You've drawn ``{drawncard}``", ephemeral=True)
+        await interaction.response.edit_message(content=makeBoardASCII(interaction.channel))
 
 class seeBoard(discord.ui.View):
+    
     @discord.ui.button(label="Hand", style=discord.ButtonStyle.primary)
+    
     async def seehand(self, interaction):
         game = load(interaction.channel)
         P1, P2 = str(interaction.channel).split("-")
@@ -93,11 +99,12 @@ class seeBoard(discord.ui.View):
         await interaction.response.send_message(game['hand' + temp], ephemeral = True)
 
     @discord.ui.button(label="Deck", style=discord.ButtonStyle.primary)
+    
     async def seedeck(self, interaction):
         game = load(interaction.channel)
-        P1, P2 = interaction.channel.lower().split("-")
-        temp = mktemp(str(interaction.user)[0:-5].lower(), P1, P2)
-        await interaction.response.send_message(game['deck' + temp], ephemeral = True)
+
+
+        await interaction.response.send_message(game['deck' + str(interaction.user)[0:-5]], ephemeral = True)
 
 
 @bot.slash_command()
