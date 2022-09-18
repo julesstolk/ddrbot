@@ -1,3 +1,4 @@
+from code import interact
 import json
 import os
 from PIL import Image, ImageDraw, ImageFont
@@ -10,7 +11,7 @@ playerselectoptions = [discord.SelectOption(label="Don't press please :D", descr
 game = {}
 samplegamesave = {
     "hp": 20, 
-    "board": [], 
+    "board": ["--+--", "--+--", "--+--", "--+--", "--+--"], 
     "hand": [], 
     "deck": [], 
     "magic": 0, 
@@ -20,34 +21,34 @@ samplegamesave = {
 }
 
 def load(channel):
-    with open(f"DDMatches/{str(channel)}.json") as f:
+    with open(f"games/{str(channel)}.json") as f:
         return json.load(f)
 
 def save(channel, game):
-    with open(f"DDMatches/{channel}.json", "w") as f:
+    with open(f"games/{str(channel)}.json", "w") as f:
         json.dump(game, f)
 
-def mktemp(player, P1, P2):
-    if player == P1:
-        return "P1"
-    if player == P2:
-        return "P2"
-
 def makeBoardASCII(channel):
+    p1, p2 = channel.split("-")
+    boardlist1, boardlist2 = game["board" + p1], game["board" + p2]
+    while len(boardlist1) != 5:
+        boardlist1.append("--+--")
+    while len(boardlist2) != 5:
+        boardlist2.append("--+--")
+    boardlists = [boardlist1, boardlist2]
     game = load(channel)
-    P1, P2 = str(channel).split("-")
     endrow = ""
-    for i in range(1, 3):
-        player = "P" + str(i)
+    playerlist = list(str(channel).split("-"))
+    for i in range(0, 2):
+        player = playerlist[i]
         row = f"| HP {player}:{game['hp' + player]} | Hand:{len(game['hand' + player])} | Deck:{len(game['deck' + player])} | Magic:{game['magic' + player]} | Max Magic:{game['maxmagic' + player]} | Grave:{len(game['grave' + player])} | Banished:{len(game['banish' + player])} |"
         endrow += row + "\n"
-        if i == 1:
-            for j in range(1, 3):
-                player2 = "P" + str(j)
-                row = "| "
-                for card in game["board" + player2]:
+        if i == 0:
+            for j in range(0, 2):
+                row = "| | "
+                for card in boardlists[j]:
                     row += card + " | "
-                row = row.strip()
+                row = row + " |"
                 endrow += row + "\n"
     boardrows = list(endrow.split("\n"))
     longest = 0
@@ -69,22 +70,33 @@ def makeBoardASCII(channel):
 
 class buttonBoard(discord.ui.View):
     @discord.ui.button(label="See", style=discord.ButtonStyle.primary)
-
-    async def seesomething(self, button, interaction):
+    async def seesomething(self, interaction):
         await interaction.response.edit_message(view = seeBoard())
 
     @discord.ui.button(label="Play", style=discord.ButtonStyle.primary)
+    async def play_callback(self, interaction):
+        game = load(interaction.channel)
+        player = str(interaction.user)[0:-5]
+        class playCard():
+            @discord.ui.select(placeholder="Select your card", min_values=1, max_values=1, options = game["hand" + str(interaction.user)[0:-5]])
 
-    async def play_callback:
+            async def playcard_callback(self, interaction):
+                player = str(interaction.user)[0:-5]
+                if len(game["board" + player]) < 5:
+                    game["board" + player].append(interaction.values[0])
+                    game["hand" + player].remove(interaction.values[0])
+                    save(interaction.channel, game)
+                    await interaction.response.edit_message(content=makeBoardASCII(interaction.channel))
+                    
         await interaction.response.edit_message(view = playCard())
 
     @discord.ui.button(label="Draw", style=discord.ButtonStyle.primary)
-
-    async def draw_callback:
+    async def draw_callback(self, interaction):
         player = str(interaction.user)[0:-5]
         drawncard = random.choice(game["deck" + player])
         game["deck" + player].remove(drawncard)
         game["hand" + player].append(drawncard)
+        save(interaction.channel, game)
         await interaction.response.send_message(content=f"You've drawn ``{drawncard}``", ephemeral=True)
         await interaction.response.edit_message(content=makeBoardASCII(interaction.channel))
 
@@ -94,17 +106,13 @@ class seeBoard(discord.ui.View):
     
     async def seehand(self, interaction):
         game = load(interaction.channel)
-        P1, P2 = str(interaction.channel).split("-")
-        temp = mktemp(str(interaction.user)[0:-5].lower(), P1, P2)
-        await interaction.response.send_message(game['hand' + temp], ephemeral = True)
+        await interaction.response.send_message(game['hand' + str(interaction.user)[0:-5].lower()], ephemeral = True)
 
     @discord.ui.button(label="Deck", style=discord.ButtonStyle.primary)
     
     async def seedeck(self, interaction):
         game = load(interaction.channel)
-
-
-        await interaction.response.send_message(game['deck' + str(interaction.user)[0:-5]], ephemeral = True)
+        await interaction.response.send_message(game['deck' + str(interaction.user)[0:-5].lower()], ephemeral = True)
 
 
 @bot.slash_command()
@@ -122,12 +130,12 @@ async def startmatch(ctx):
             for item in playerselectoptions:
                 if item.label == select.values[0]:
                     playerselectoptions.remove(item)
-                    matchplayer = str(item.label)
-                    otherplayer = str(interaction.user[0:-5])
+                    matchplayer = str(item.label).lower()
+                    otherplayer = str(interaction.user)[0:-5].lower()
                     break
-            newChannel = await interaction.guild.create_text_channel("`" + otherplayer + "-" + matchplayer + "`", category=interaction.channel.category, position = 9)
+            newChannel = await interaction.guild.create_text_channel("`" + matchplayer + "-" + otherplayer + "`", category=interaction.channel.category, position = 9)
             await interaction.response.edit_message(content=f"Created channel {newChannel}")
-            with open(f"games\\{otherplayer}-{matchplayer}.json") as f:
+            with open(f"games/{matchplayer}-{otherplayer}.json", "w") as f:
                 newgamesave = {}
                 for key in samplegamesave:
                     newgamesave[key + otherplayer] = samplegamesave[key]
