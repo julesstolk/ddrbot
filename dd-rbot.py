@@ -29,7 +29,8 @@ def save(channel, game):
         json.dump(game, f)
 
 def makeBoardASCII(channel):
-    p1, p2 = channel.split("-")
+    p1, p2 = str(channel).split("-")
+    game = load(channel)
     boardlist1, boardlist2 = game["board" + p1], game["board" + p2]
     while len(boardlist1) != 5:
         boardlist1.append("--+--")
@@ -41,7 +42,7 @@ def makeBoardASCII(channel):
     playerlist = list(str(channel).split("-"))
     for i in range(0, 2):
         player = playerlist[i]
-        row = f"| HP {player}:{game['hp' + player]} | Hand:{len(game['hand' + player])} | Deck:{len(game['deck' + player])} | Magic:{game['magic' + player]} | Max Magic:{game['maxmagic' + player]} | Grave:{len(game['grave' + player])} | Banished:{len(game['banish' + player])} |"
+        row = f"| HP {player}:{game['hp' + player]} | Hand:{len(game['hand' + player])} | Deck:{len(game['deck' + player])} | Magic:{game['magic' + player]} | Max Magic:{game['maxmagic' + player]} | Grave:{len(game['grave' + player])} | Banish:{len(game['banish' + player])} |"
         endrow += row + "\n"
         if i == 0:
             for j in range(0, 2):
@@ -58,19 +59,9 @@ def makeBoardASCII(channel):
     endrow = "```\n+" + "-" * (longest - 2) + "+\n" + endrow + "+" + "-" * (longest - 2) + "+```"
     return endrow
 
-# boardcomps = [
-#                 [
-#                     Button(label = "See", style = 1, id = "see"), 
-#                     Button(label = "Play", style = 1, id = "playcard"),
-#                     Button(label = "Draw", style = 1, id = "drawcard"),
-#                     Button(label = "Remove", style = 1, id = "removecard"),
-#                     Button(label = "End Turn", style = 1, id = "end")
-#                 ]
-#             ]
-
 class buttonBoard(discord.ui.View):
     @discord.ui.button(label="See", style=discord.ButtonStyle.primary)
-    async def seesomething(self, interaction):
+    async def see_callback(self, interaction):
         await interaction.response.edit_message(view = seeBoard())
 
     @discord.ui.button(label="Play", style=discord.ButtonStyle.primary)
@@ -100,19 +91,49 @@ class buttonBoard(discord.ui.View):
         await interaction.response.send_message(content=f"You've drawn ``{drawncard}``", ephemeral=True)
         await interaction.response.edit_message(content=makeBoardASCII(interaction.channel))
 
+    @discord.ui.button(label="Remove", style=discord.ButtonStyle.primary)
+    async def remove_callback(self, interaction):
+        pass
+
+    @discord.ui.button(label="End Turn", style=discord.ButtonStyle.primary)
+    async def endturn_callback(self, interaction):
+        pass
+
+    @discord.ui.button(label="Deck", style=discord.ButtonStyle.primary)
+    async def deck_callback(self, button, interaction):
+        await interaction.response.edit_message(view=editDeck())
+
+
 class seeBoard(discord.ui.View):
-    
     @discord.ui.button(label="Hand", style=discord.ButtonStyle.primary)
-    
     async def seehand(self, interaction):
         game = load(interaction.channel)
         await interaction.response.send_message(game['hand' + str(interaction.user)[0:-5].lower()], ephemeral = True)
 
     @discord.ui.button(label="Deck", style=discord.ButtonStyle.primary)
-    
     async def seedeck(self, interaction):
         game = load(interaction.channel)
         await interaction.response.send_message(game['deck' + str(interaction.user)[0:-5].lower()], ephemeral = True)
+
+
+class addDeckModal(discord.ui.Modal):
+    def __init__(self):
+        super().__init__()
+        self.add_item(discord.ui.InputText(label="Type the card you want to add."))
+
+    async def modal_callback(self, interaction):
+        game = load(interaction.channel)
+        print(self.children[0])
+        game["deck" + str(interaction.user)[0:-5]].append(self.children[0])
+
+class editDeck(discord.ui.View):
+    @discord.ui.button(label="Add to deck", style=discord.ButtonStyle.primary)
+    async def add_to_deck_callback(self, interaction):
+        await interaction.response.send_modal(addDeckModal)
+        
+    @discord.ui.button(label="Use deck", style=discord.ButtonStyle.primary)
+    async def use_deck_callback(self, interaction):
+        pass
 
 
 @bot.slash_command()
@@ -160,7 +181,18 @@ async def seecard(ctx, card):
             break
 
 
-
+@bot.slash_command()
+async def add_deck(ctx, name: str, deck):
+    deck = list(deck.split(", "))
+    if len(deck) != 20:
+        await ctx.respond("This deck doesn't have 20 cards!\nThe format is ``/add_deck <name> [\"card1\", \"<card2>\", \"<card3>\", until \"<card20>\"]``")
+    else:
+        with open("decks.json", "r") as f:
+            deckdict = json.load(f)
+            deckdict[name] = deck
+        with open("decks.json", "w") as f:
+            json.dump(deckdict, f)
+        await ctx.respond(f"Deck {name} is saved.")
 
 
 
