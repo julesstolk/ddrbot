@@ -92,11 +92,11 @@ class buttonBoard(discord.ui.View):
         await interaction.response.edit_message(content=makeBoardASCII(interaction.channel))
 
     @discord.ui.button(label="Remove", style=discord.ButtonStyle.primary)
-    async def remove_callback(self, interaction):
+    async def remove_callback(self, button, interaction):
         pass
 
     @discord.ui.button(label="End Turn", style=discord.ButtonStyle.primary)
-    async def endturn_callback(self, interaction):
+    async def endturn_callback(self, button, interaction):
         pass
 
     @discord.ui.button(label="Deck", style=discord.ButtonStyle.primary)
@@ -117,22 +117,25 @@ class seeBoard(discord.ui.View):
 
 
 class addDeckModal(discord.ui.Modal):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.add_item(discord.ui.InputText(label="Type the card you want to add."))
 
-    async def modal_callback(self, interaction):
+    async def callback(self, interaction):
         game = load(interaction.channel)
         print(self.children[0])
         game["deck" + str(interaction.user)[0:-5]].append(self.children[0])
+        await interaction.response.edit_message(content=makeBoardASCII(interaction.channel), view=buttonBoard())
+        await interaction.response.send_message(content=f"Added card '{str(self.children[0])}'")
 
 class editDeck(discord.ui.View):
     @discord.ui.button(label="Add to deck", style=discord.ButtonStyle.primary)
-    async def add_to_deck_callback(self, interaction):
-        await interaction.response.send_modal(addDeckModal)
+    async def add_to_deck_callback(self, button, interaction):
+        deckModal = addDeckModal(title="Deck Modal")
+        await interaction.response.send_modal(deckModal)
         
     @discord.ui.button(label="Use deck", style=discord.ButtonStyle.primary)
-    async def use_deck_callback(self, interaction):
+    async def use_deck_callback(self, button, interaction):
         pass
 
 
