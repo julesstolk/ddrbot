@@ -42,7 +42,7 @@ def makeBoardASCII(channel):
     playerlist = list(str(channel).split("-"))
     for i in range(0, 2):
         player = playerlist[i]
-        row = f"| HP {player}:{game['hp' + player]} | Hand:{len(game['hand' + player])} | Deck:{len(game['deck' + player])} | Magic:{game['magic' + player]} | Max Magic:{game['maxmagic' + player]} | Grave:{len(game['grave' + player])} | Banish:{len(game['banish' + player])} |"
+        row = f"|HP {player}:{game['hp' + player]}|Hand:{len(game['hand' + player])}|Deck:{len(game['deck' + player])}|Magic:{game['magic' + player]}|Max Magic:{game['maxmagic' + player]}|Grave:{len(game['grave' + player])}|Banish:{len(game['banish' + player])}|"
         endrow += row + "\n"
         if i == 0:
             for j in range(0, 2):
@@ -61,15 +61,18 @@ def makeBoardASCII(channel):
 
 class buttonBoard(discord.ui.View):
     @discord.ui.button(label="See", style=discord.ButtonStyle.primary)
-    async def see_callback(self, interaction):
+    async def see_callback(self, button, interaction):
         await interaction.response.edit_message(view = seeBoard())
 
     @discord.ui.button(label="Play", style=discord.ButtonStyle.primary)
     async def play_callback(self, interaction):
         game = load(interaction.channel)
-        player = str(interaction.user)[0:-5]
+        player = str(interaction.user)[0:-5].lower()
+        playerCardOptions = []
+        for item in game["hand" + str(interaction.user)[0:-5]]:
+            playCardOptions.append(discord.SelectOption(label=item))
         class playCard():
-            @discord.ui.select(placeholder="Select your card", min_values=1, max_values=1, options = game["hand" + str(interaction.user)[0:-5]])
+            @discord.ui.select(placeholder="Select your card", min_values=1, max_values=1, options = (playCardOptions))
 
             async def playcard_callback(self, interaction):
                 player = str(interaction.user)[0:-5]
@@ -82,14 +85,16 @@ class buttonBoard(discord.ui.View):
         await interaction.response.edit_message(view = playCard())
 
     @discord.ui.button(label="Draw", style=discord.ButtonStyle.primary)
-    async def draw_callback(self, interaction):
-        player = str(interaction.user)[0:-5]
+    async def draw_callback(self, button, interaction):
+        game = load(interaction.channel)
+        player = str(interaction.user)[0:-5].lower()
         drawncard = random.choice(game["deck" + player])
         game["deck" + player].remove(drawncard)
         game["hand" + player].append(drawncard)
         save(interaction.channel, game)
-        await interaction.response.send_message(content=f"You've drawn ``{drawncard}``", ephemeral=True)
         await interaction.response.edit_message(content=makeBoardASCII(interaction.channel))
+        await interaction.send(content=f"You've drawn ``{drawncard}``", ephemeral=True)
+        
 
     @discord.ui.button(label="Remove", style=discord.ButtonStyle.primary)
     async def remove_callback(self, button, interaction):
@@ -99,21 +104,22 @@ class buttonBoard(discord.ui.View):
     async def endturn_callback(self, button, interaction):
         pass
 
-    @discord.ui.button(label="Deck", style=discord.ButtonStyle.primary)
+    @discord.ui.button(label="Deck", style=discord.ButtonStyle.danger)
     async def deck_callback(self, button, interaction):
         await interaction.response.edit_message(view=editDeck())
 
-
 class seeBoard(discord.ui.View):
     @discord.ui.button(label="Hand", style=discord.ButtonStyle.primary)
-    async def seehand(self, interaction):
+    async def seehand(self, button, interaction):
         game = load(interaction.channel)
-        await interaction.response.send_message(game['hand' + str(interaction.user)[0:-5].lower()], ephemeral = True)
+        await interaction.channel.send(game['hand' + str(interaction.user)[0:-5].lower()], ephemeral = True)
+        await interaction.response.edit_message(content=buttonBoard())
 
     @discord.ui.button(label="Deck", style=discord.ButtonStyle.primary)
-    async def seedeck(self, interaction):
+    async def seedeck(self, button, interaction):
         game = load(interaction.channel)
-        await interaction.response.send_message(game['deck' + str(interaction.user)[0:-5].lower()], ephemeral = True)
+        await interaction.channel.send(game['deck' + str(interaction.user)[0:-5].lower()], ephemeral = True)
+        await interaction.response.edit_message(content=buttonBoard())
 
 
 class addDeckModal(discord.ui.Modal):
@@ -126,7 +132,7 @@ class addDeckModal(discord.ui.Modal):
         print(self.children[0])
         game["deck" + str(interaction.user)[0:-5]].append(self.children[0])
         await interaction.response.edit_message(content=makeBoardASCII(interaction.channel), view=buttonBoard())
-        await interaction.response.send_message(content=f"Added card '{str(self.children[0])}'")
+        await interaction.response.send_message(content=f"Added card '{str(self.children[0])}' to your deck.")
 
 class editDeck(discord.ui.View):
     @discord.ui.button(label="Add to deck", style=discord.ButtonStyle.primary)
@@ -136,8 +142,27 @@ class editDeck(discord.ui.View):
         
     @discord.ui.button(label="Use deck", style=discord.ButtonStyle.primary)
     async def use_deck_callback(self, button, interaction):
-        pass
 
+        loadDecks = {}
+        with open("decks.json", "r") as f:
+            loadDecks = json.load(f)
+
+        loadedDeckList = []
+        
+        for item in loadDecks.keys():
+            loadedDeckList.append(discord.SelectOption(label=item))
+
+        class useDeck(discord.ui.View):
+            @discord.ui.select(placeholder="Select your deck:", min_values=1, max_values=1, options=loadedDeckList)
+        
+            async def deck_choice_callback(self, select, interaction):
+                game = load(interaction.channel)
+                player = str(interaction.user)[0:-5].lower()
+                game["deck" + player].extend(loadDecks[select.values[0]])
+                save(interaction.channel, game)
+                await interaction.response.send_message(content=f"Added premade deck '{select.values[0]}' to your deck.", ephemeral=True)
+                await interaction.response.edit_message(content=makeBoardASCII(interaction.channel), view=buttonBoard())
+        await interaction.response.edit_message(view=useDeck())
 
 @bot.slash_command()
 async def start(ctx):
