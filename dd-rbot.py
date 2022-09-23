@@ -60,6 +60,7 @@ def makeBoardASCII(channel):
     return endrow
 
 class buttonBoard(discord.ui.View):
+
     @discord.ui.button(label="See", style=discord.ButtonStyle.primary)
     async def see_callback(self, button, interaction):
         await interaction.response.edit_message(view = seeBoard())
@@ -70,8 +71,7 @@ class buttonBoard(discord.ui.View):
         player = str(interaction.user)[0:-5].lower()
         playstring, i = "", 1
         for item in game["hand" + player]:
-            playstring += str(i) + ": " + item + ", "
-            i += 1
+            playstring += item + ", "
         playstring = playstring [0:-2]
 
         class playCardModal(discord.ui.Modal):
@@ -83,17 +83,29 @@ class buttonBoard(discord.ui.View):
             async def callback(self, interaction):
                 game = load(interaction.channel)
                 player = str(interaction.user)[0:-5].lower()
-                card = game["hand" + player][int(self.children[0].value)-1]
+                card = self.children[0].value
                 game["hand" + player].remove(card)
                 for i in range(len(game["board" + player])):
-                    if game["board" + player][i] == card:
+                    if game["board" + player][i] == "--+--":
                         game["board" + player][i] = card
-                        break
-                save(interaction.channel, game)
-                await interaction.response.edit_message(content=makeBoardASCII(interaction.channel), view=buttonBoard())
-        
+                        save(interaction.channel, game)
+                        print("uh")
+                        await interaction.response.edit_message(content=makeBoardASCII(interaction.channel), view=buttonBoard())
+                        return
+                await interaction.response.send_message(content="That is not a valid card index.", ephemeral=True)
+    
         playModal = playCardModal(title="Play a card")
         await interaction.response.send_modal(playModal)
+        
+    @discord.ui.button(label="Remove", style=discord.ButtonStyle.primary)
+    async def remove_callback(self, button, interaction):
+        game = load(interaction.channel)
+        p1, p2 = str(interaction.channel).split("-")
+
+        class removeSelectCard(discord.ui.View):
+            @discord.ui.button(label=game["board" + p1], style=discord.ButtonStyle.primary)
+            async def remove_callback1(self, button, interaction):
+                pass 
 
     @discord.ui.button(label="Draw", style=discord.ButtonStyle.primary)
     async def draw_callback(self, button, interaction):
@@ -104,19 +116,16 @@ class buttonBoard(discord.ui.View):
         game["hand" + player].append(drawncard)
         save(interaction.channel, game)
         await interaction.response.edit_message(content=makeBoardASCII(interaction.channel))
-        
 
-    @discord.ui.button(label="Remove", style=discord.ButtonStyle.primary)
-    async def remove_callback(self, button, interaction):
-        pass
+    @discord.ui.button(label="Deck", style=discord.ButtonStyle.primary)
+    async def deck_callback(self, button, interaction):
+        await interaction.response.edit_message(view=editDeck())
 
-    @discord.ui.button(label="End Turn", style=discord.ButtonStyle.primary)
+    @discord.ui.button(label="End Turn", style=discord.ButtonStyle.danger)
     async def endturn_callback(self, button, interaction):
         pass
 
-    @discord.ui.button(label="Deck", style=discord.ButtonStyle.danger)
-    async def deck_callback(self, button, interaction):
-        await interaction.response.edit_message(view=editDeck())
+
 
 class seeBoard(discord.ui.View):
     @discord.ui.button(label="Hand", style=discord.ButtonStyle.primary)
@@ -182,6 +191,11 @@ class editDeck(discord.ui.View):
     async def escape_callback(self, button, interaction):
         await interaction.response.edit_message(content=makeBoardASCII(interaction.channel), view=buttonBoard())
     
+class chooseRemove(discord.ui.View):
+    @discord.ui.button(label="Grave", style=discord.ButtonStyle.primary)
+    async def moveGrave(self, button, interaction):
+        pass
+
 @bot.slash_command()
 async def start(ctx):
     await ctx.respond(makeBoardASCII(ctx.channel), view = buttonBoard())
