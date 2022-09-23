@@ -83,12 +83,14 @@ class buttonBoard(discord.ui.View):
             async def callback(self, interaction):
                 game = load(interaction.channel)
                 player = str(interaction.user)[0:-5].lower()
-                print(str(self.children[0]))
-                card = game["hand" + player][int(str(self.children[0]))-1]
+                card = game["hand" + player][int(self.children[0].value)-1]
                 game["hand" + player].remove(card)
-                game["board" + player].append(card)
-                save(interaction.channel)
-                await interaction.response.edit_message(view=buttonBoard())
+                for i in range(len(game["board" + player])):
+                    if game["board" + player][i] == card:
+                        game["board" + player][i] = card
+                        break
+                save(interaction.channel, game)
+                await interaction.response.edit_message(content=makeBoardASCII(interaction.channel), view=buttonBoard())
         
         playModal = playCardModal(title="Play a card")
         await interaction.response.send_modal(playModal)
@@ -102,7 +104,6 @@ class buttonBoard(discord.ui.View):
         game["hand" + player].append(drawncard)
         save(interaction.channel, game)
         await interaction.response.edit_message(content=makeBoardASCII(interaction.channel))
-        await interaction.send(content=f"You've drawn ``{drawncard}``", ephemeral=True)
         
 
     @discord.ui.button(label="Remove", style=discord.ButtonStyle.primary)
@@ -132,7 +133,6 @@ class seeBoard(discord.ui.View):
     async def escape_callback(self, button, interaction):
         await interaction.response.edit_message(view=buttonBoard())
 
-
 class addDeckModal(discord.ui.Modal):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -140,10 +140,9 @@ class addDeckModal(discord.ui.Modal):
 
     async def callback(self, interaction):
         game = load(interaction.channel)
-        print(self.children[0])
-        game["deck" + str(interaction.user)[0:-5]].append(self.children[0])
-        await interaction.response.edit_message(content=makeBoardASCII(interaction.channel), view=buttonBoard())
-        await interaction.response.send_message(content=f"Added card '{str(self.children[0])}' to your deck.")
+        game["deck" + str(interaction.user)[0:-5].lower()].append(self.children[0].value)
+        save(interaction.channel, game)
+        await interaction.response.send_message(content=f"Added card '{str(self.children[0].value)}' to your deck.", ephemeral=True)
 
 class editDeck(discord.ui.View):
     @discord.ui.button(label="Add to deck", style=discord.ButtonStyle.primary)
@@ -172,12 +171,16 @@ class editDeck(discord.ui.View):
                 game["deck" + player].extend(loadDecks[select.values[0]])
                 save(interaction.channel, game)
                 await interaction.response.send_message(content=f"Added premade deck '{select.values[0]}' to your deck.", ephemeral=True)
+
+            @discord.ui.button(label="Escape", style=discord.ButtonStyle.primary)
+            
+            async def escape_button(self, button, interaction):
                 await interaction.response.edit_message(content=makeBoardASCII(interaction.channel), view=buttonBoard())
         await interaction.response.edit_message(view=useDeck())
 
     @discord.ui.button(label="Escape", style=discord.ButtonStyle.danger)
     async def escape_callback(self, button, interaction):
-        await interaction.response.edit_message(view=buttonBoard())
+        await interaction.response.edit_message(content=makeBoardASCII(interaction.channel), view=buttonBoard())
     
 @bot.slash_command()
 async def start(ctx):
