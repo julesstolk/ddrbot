@@ -1,3 +1,4 @@
+from code import interact
 from ftplib import parse150
 from gc import disable
 import json
@@ -100,50 +101,71 @@ class buttonBoard(discord.ui.View):
     @discord.ui.button(label="Move", style=discord.ButtonStyle.primary)
     async def move_callback(self, button, interaction):
         game = load(interaction.channel)
-        p1, p2 = str(interaction.channel).split("-")    # think about this!!!
+        p1, p2 = str(interaction.channel).split("-")
         cardsOnBoard = game["board" + p1]
-        cardsOnBoard.remove("--+--")
         for i in range(len(cardsOnBoard)):
-            cardsOnBoard[i] = cardsOnBoard[i] + " - " + p1
+            cardsOnBoard[i] = discord.SelectOption(label=cardsOnBoard[i] + " - " + p1 + ", " + str(i + 1))
         for item in game["board" + p2]:
-            if item != "--+--":
-                cardsOnBoard.append(item + " - " + p2)
+            cardsOnBoard.append(discord.SelectOption(label=item + " - " + p2 + ", " + str(game["board" + p2].indexof(item) + 1)))
+
         class chooseRemoveCard(discord.ui.View):
 
             @discord.ui.select(placeholder="Choose a card to move.", min_values=1, max_values=1, options=cardsOnBoard)
             async def move_callback(self, select, interaction):
+                game = load(interaction.channel)
                 player = str(interaction.user)[0:-5].lower()
-                chosenCard = select.values[0]
-                if player in chosenCard:
+                chosenCard, subject = select.values[0].split(" - ")
+                subject = subject[0:-3]
+                if player == subject:
                     disableFriendlyButton = False
-                    subject = p2
                 else:
                     disableFriendlyButton = True
-                    subject = p1
 
-                class chooseMoveFriendly(discord.ui.View):
-                    @discord.ui.Button(label="Grave", style=discord.ButtonStyle.primary)
+                class chooseMoveSubject(discord.ui.View):
+                    @discord.ui.button(label="Grave", style=discord.ButtonStyle.primary)
                     async def grave_callback(self, button, interaction):
                         game["board" + subject].remove(chosenCard)
                         game["grave" + subject].append(chosenCard)
+                        save(interaction.channel, game)
+                        await interaction.response.edit_message(content=makeBoardASCII(interaction.channel), view=buttonBoard())
                         
-                    @discord.ui.Button(label="Banish", style=discord.ButtonStyle.primary)
+                    @discord.ui.button(label="Banish", style=discord.ButtonStyle.primary)
                     async def banish_callback(self, button, interaction):
                         game["board" + subject].remove(chosenCard)
                         game["banish" + subject].remove(chosenCard)
+                        save(interaction.channel, game)
+                        await interaction.response.edit_message(content=makeBoardASCII(interaction.channel), view=buttonBoard())
 
                     @discord.ui.button(label="Exile", style=discord.ButtonStyle.primary)
                     async def exile_callback(self, button, interaction):
-                        chosenMove = "exile"
+                            game["board" + subject].remove(chosenCard)
+                            game["board" + subject].append("EXILED")
+                            save(interaction.channel, game)
+                            await interaction.response.edit_message(content=makeBoardASCII(interaction.channel), view=buttonBoard())
 
                     @discord.ui.button(label="Hand", style=discord.ButtonStyle.primary, disabled=disableFriendlyButton)
                     async def hand_callback(self, button, interaction):
-                        chosenMove = "hand"
+                        game["board" + subject].remove(chosenCard)
+                        game["hand" + subject].append(chosenCard)
+                        save(interaction.channel, game)
+                        await interaction.response.edit_message(content=makeBoardASCII(interaction.channel), view=buttonBoard())
 
                     @discord.ui.button(label="Deck", style=discord.ButtonStyle.primary, disabled=disableFriendlyButton)
                     async def deck_callback(self, button, interaction):
-                        chosenMove = "exile"
+                        game["board" + subject].remove(chosenCard)
+                        game["deck" + subject].append(chosenCard)
+                        save(interaction.channel, game)
+                        await interaction.response.edit_message(content=makeBoardASCII(interaction.channel), view=buttonBoard())
 
+                    @discord.ui.button(label="Escape", style=discord.ButtonStyle.danger)
+                    async def escape_callback(self, button, interaction):
+                        await interaction.response.edit_message(view=buttonBoard())
+                
+                @discord.ui.button(label="Escape", style=discord.ButtonStyle.danger)
+                async def escape_callback(self, button, interaction):
+                    await interaction.response.edit_message(view=buttonBoard())
+
+                await interaction.response.edit_message(view=chooseMoveSubject())
         await interaction.response.edit_message(view=chooseRemoveCard())
 
     @discord.ui.button(label="Draw", style=discord.ButtonStyle.primary)
@@ -160,7 +182,15 @@ class buttonBoard(discord.ui.View):
     async def deck_callback(self, button, interaction):
         await interaction.response.edit_message(view=editDeck())
 
-    @discord.ui.button(label="End Turn", style=discord.ButtonStyle.danger)
+    @discord.ui.button(label="Magic", style=discord.ButtonStyle.primary)
+    async def magic_callback(self, button, interaction):
+        await interaction.response.edit_message(view=editMagic())
+
+    @discord.ui.button(label="Damage", style=discord.ButtonStyle.primary)
+    async def damage_callback(self, button, interaction):
+        await interaction.response.edit_message(view=editDeck())
+
+    @discord.ui.button(label="End Turn", style=discord.ButtonStyle.danger, row=2)
     async def endturn_callback(self, button, interaction):
         pass
 
@@ -226,6 +256,47 @@ class editDeck(discord.ui.View):
 
     @discord.ui.button(label="Escape", style=discord.ButtonStyle.danger)
     async def escape_callback(self, button, interaction):
+        await interaction.response.edit_message(content=makeBoardASCII(interaction.channel), view=buttonBoard())
+
+class editMagic(discord.ui.View):
+    @discord.ui.button(label="Change magic", style=discord.ButtonStyle.primary)
+    async def magic_callback(self, button, interaction):
+        modal = magicModal(title="Change magic")
+        await interaction.response.send_modal(modal)
+
+    @discord.ui.button(label="Change max magic", style=discord.ButtonStyle.primary)
+    async def maxmagic_callback(self, button, interaction):
+        modal = magicMaxModal(title="Change max magic")
+        await interaction.response.send_modal(modal)
+
+class magicModal(discord.ui.Modal):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.add_item(discord.ui.InputText(label="Edit your magic."))
+
+    async def callback(self, interaction):
+        game = load(interaction.channel)
+        player = str(interaction.user)[0:-5].lower()
+        if "-" in self.children[0].value:
+            game["magic" + player] -= int(self.children[0].value[1:])
+        else:
+            game["magic" + player] += int(self.children[0].value[1:])
+        save(interaction.channel, game)
+        await interaction.response.edit_message(content=makeBoardASCII(interaction.channel), view=buttonBoard())
+
+class magicMaxModal(discord.ui.Modal):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.add_item(discord.ui.InputText(label="Edit your magic."))
+
+    async def callback(self, interaction):
+        game = load(interaction.channel)
+        player = str(interaction.user)[0:-5].lower()
+        if "-" in self.children[0].value:
+            game["maxmagic" + player] -= int(self.children[0].value[1:])
+        else:
+            game["maxmagic" + player] += int(self.children[0].value[1:])
+        save(interaction.channel, game)
         await interaction.response.edit_message(content=makeBoardASCII(interaction.channel), view=buttonBoard())
 
 @bot.slash_command()
