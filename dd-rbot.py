@@ -1,7 +1,7 @@
-from code import interact
+from ftplib import parse150
+from gc import disable
 import json
 import os
-from PIL import Image, ImageDraw, ImageFont
 import discord
 from discord.ext import commands
 import random
@@ -97,15 +97,54 @@ class buttonBoard(discord.ui.View):
         playModal = playCardModal(title="Play a card")
         await interaction.response.send_modal(playModal)
         
-    @discord.ui.button(label="Remove", style=discord.ButtonStyle.primary)
-    async def remove_callback(self, button, interaction):
+    @discord.ui.button(label="Move", style=discord.ButtonStyle.primary)
+    async def move_callback(self, button, interaction):
         game = load(interaction.channel)
-        p1, p2 = str(interaction.channel).split("-")
+        p1, p2 = str(interaction.channel).split("-")    # think about this!!!
+        cardsOnBoard = game["board" + p1]
+        cardsOnBoard.remove("--+--")
+        for i in range(len(cardsOnBoard)):
+            cardsOnBoard[i] = cardsOnBoard[i] + " - " + p1
+        for item in game["board" + p2]:
+            if item != "--+--":
+                cardsOnBoard.append(item + " - " + p2)
+        class chooseRemoveCard(discord.ui.View):
 
-        class removeSelectCard(discord.ui.View):
-            @discord.ui.button(label=game["board" + p1], style=discord.ButtonStyle.primary)
-            async def remove_callback1(self, button, interaction):
-                pass 
+            @discord.ui.select(placeholder="Choose a card to move.", min_values=1, max_values=1, options=cardsOnBoard)
+            async def move_callback(self, select, interaction):
+                player = str(interaction.user)[0:-5].lower()
+                chosenCard = select.values[0]
+                if player in chosenCard:
+                    disableFriendlyButton = False
+                    subject = p2
+                else:
+                    disableFriendlyButton = True
+                    subject = p1
+
+                class chooseMoveFriendly(discord.ui.View):
+                    @discord.ui.Button(label="Grave", style=discord.ButtonStyle.primary)
+                    async def grave_callback(self, button, interaction):
+                        game["board" + subject].remove(chosenCard)
+                        game["grave" + subject].append(chosenCard)
+                        
+                    @discord.ui.Button(label="Banish", style=discord.ButtonStyle.primary)
+                    async def banish_callback(self, button, interaction):
+                        game["board" + subject].remove(chosenCard)
+                        game["banish" + subject].remove(chosenCard)
+
+                    @discord.ui.button(label="Exile", style=discord.ButtonStyle.primary)
+                    async def exile_callback(self, button, interaction):
+                        chosenMove = "exile"
+
+                    @discord.ui.button(label="Hand", style=discord.ButtonStyle.primary, disabled=disableFriendlyButton)
+                    async def hand_callback(self, button, interaction):
+                        chosenMove = "hand"
+
+                    @discord.ui.button(label="Deck", style=discord.ButtonStyle.primary, disabled=disableFriendlyButton)
+                    async def deck_callback(self, button, interaction):
+                        chosenMove = "exile"
+
+        await interaction.response.edit_message(view=chooseRemoveCard())
 
     @discord.ui.button(label="Draw", style=discord.ButtonStyle.primary)
     async def draw_callback(self, button, interaction):
@@ -124,8 +163,6 @@ class buttonBoard(discord.ui.View):
     @discord.ui.button(label="End Turn", style=discord.ButtonStyle.danger)
     async def endturn_callback(self, button, interaction):
         pass
-
-
 
 class seeBoard(discord.ui.View):
     @discord.ui.button(label="Hand", style=discord.ButtonStyle.primary)
@@ -190,11 +227,6 @@ class editDeck(discord.ui.View):
     @discord.ui.button(label="Escape", style=discord.ButtonStyle.danger)
     async def escape_callback(self, button, interaction):
         await interaction.response.edit_message(content=makeBoardASCII(interaction.channel), view=buttonBoard())
-    
-class chooseRemove(discord.ui.View):
-    @discord.ui.button(label="Grave", style=discord.ButtonStyle.primary)
-    async def moveGrave(self, button, interaction):
-        pass
 
 @bot.slash_command()
 async def start(ctx):
