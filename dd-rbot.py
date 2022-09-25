@@ -18,7 +18,8 @@ samplegamesave = {
     "magic": 0, 
     "maxmagic": 0, 
     "grave": [], 
-    "banish": []
+    "banish": [],
+    "notes": {}
 }
 
 def load(channel):
@@ -37,6 +38,14 @@ def makeBoardASCII(channel):
         boardlist1.append("--+--")
     while len(boardlist2) != 5:
         boardlist2.append("--+--")
+    print(boardlist1)
+    print(game["notes" + p2])
+    for i in range(len(boardlist1)):
+        if boardlist1[i] in game["notes" + p1].keys():
+            boardlist1[i] = boardlist1[i] + " - " + game["notes" + p1][boardlist1[i]]
+    for i in range(len(boardlist2)):
+        if boardlist2[i] in game["notes" + p2].keys():
+            boardlist2[i] = boardlist2[i] + " - " + game["notes" + p2][boardlist2[i]]
     boardlists = [boardlist1, boardlist2]
     game = load(channel)
     endrow = ""
@@ -200,6 +209,11 @@ class buttonBoard(discord.ui.View):
     async def deck_callback(self, button, interaction):
         await interaction.response.edit_message(view=editDeck())
 
+    @discord.ui.button(label="Note", style=discord.ButtonStyle.primary)
+    async def note_callback(self, button, interaction):
+        modal = addNote(title="Add a note to a card.")
+        await interaction.response.send_modal(modal)
+
     @discord.ui.button(label="End Turn", style=discord.ButtonStyle.danger, row=2)
     async def endturn_callback(self, button, interaction):
         game = load(interaction.channel)
@@ -269,6 +283,10 @@ class editMagic(discord.ui.View):
         modal = magicMaxModal(title="Change max magic")
         await interaction.response.send_modal(modal)
 
+    @discord.ui.button(label="Escape", style=discord.ButtonStyle.danger)
+    async def escape_callback(self, button, interaction):
+        await interaction.response.edit_message(view=buttonBoard())
+
 class magicModal(discord.ui.Modal):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -277,7 +295,7 @@ class magicModal(discord.ui.Modal):
     async def callback(self, interaction):
         game = load(interaction.channel)
         player = str(interaction.user)[0:-5].lower()
-        game["magic" + player] += int(self.children[0].value)
+        game["magic" + player] = int(self.children[0].value)
         save(interaction.channel, game)
         await interaction.response.edit_message(content=makeBoardASCII(interaction.channel), view=buttonBoard())
 
@@ -289,7 +307,7 @@ class magicMaxModal(discord.ui.Modal):
     async def callback(self, interaction):
         game = load(interaction.channel)
         player = str(interaction.user)[0:-5].lower()
-        game["maxmagic" + player] += int(self.children[0].value)
+        game["maxmagic" + player] = int(self.children[0].value)
         save(interaction.channel, game)
         await interaction.response.edit_message(content=makeBoardASCII(interaction.channel), view=buttonBoard())
 
@@ -304,6 +322,10 @@ class damageView(discord.ui.View):
         modal = enemyDamageModal(title="Deal damage to your enemy.")
         await interaction.response.send_modal(modal)
 
+    @discord.ui.button(label="Escape", style=discord.ButtonStyle.danger)
+    async def escape_callback(self, button, interaction):
+        await interaction.response.edit_message(view=buttonBoard())
+
 class youDamageModal(discord.ui.Modal):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -312,9 +334,9 @@ class youDamageModal(discord.ui.Modal):
     async def callback(self, interaction):
         game = load(interaction.channel)
         player = str(interaction.user)[0:-5].lower()
-        game["hp" + player] += int(self.children[0].value)
+        game["hp" + player] -= int(self.children[0].value)
         save(interaction.channel, game)
-        await interaction.response.edit_message(content=makeBoardASCII(interaction.channel))
+        await interaction.response.edit_message(content=makeBoardASCII(interaction.channel), view=buttonBoard())
 
 class enemyDamageModal(discord.ui.Modal):
     def __init__(self, *args, **kwargs):
@@ -331,7 +353,7 @@ class enemyDamageModal(discord.ui.Modal):
             enemy = p1
         game["hp" + enemy] -= int(self.children[0].value)
         save(interaction.channel, game)
-        await interaction.response.edit_message(content=makeBoardASCII(interaction.channel))
+        await interaction.response.edit_message(content=makeBoardASCII(interaction.channel), view=buttonBoard())
 
 class searchModal(discord.ui.Modal):
     def __init__(self, *args, **kwargs):
@@ -348,6 +370,19 @@ class searchModal(discord.ui.Modal):
             await interaction.response.edit_message(content=makeBoardASCII(interaction.channel))
         else:
             await interaction.response.send_message(content="That card is not in your deck.")
+
+class addNote(discord.ui.Modal):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.add_item(discord.ui.InputText(label="The format is \"<cardname>-<note>\"."))
+
+    async def callback(self, interaction):
+        game = load(interaction.channel)
+        player = str(interaction.user)[0:-5].lower()
+        card, note = str(self.children[0].value).split("-")
+        game["notes" + player][card] = note
+        save(interaction.channel, game)
+        await interaction.response.edit_message(content=makeBoardASCII(interaction.channel))
 
 @bot.slash_command()
 async def start(ctx):
@@ -398,7 +433,7 @@ async def seecard(ctx, card):
 async def add_deck(ctx, name: str, deck):
     deck = list(deck.split(", "))
     if len(deck) != 20:
-        await ctx.respond("This deck doesn't have 20 cards!\nThe format is ``/add_deck <name> [\"card1\", \"<card2>\", \"<card3>\", until \"<card20>\"]``")
+        await ctx.respond("This deck doesn't have 20 cards!\nThe format is ``/=add_deck <name> [\"card1\", \"card2\", \"card3\", until \"card20\"]``")
     else:
         with open("decks.json", "r") as f:
             deckdict = json.load(f)
