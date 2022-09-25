@@ -61,10 +61,15 @@ def makeBoardASCII(channel):
     return endrow
 
 class buttonBoard(discord.ui.View):
+    @discord.ui.button(label="See hand", style=discord.ButtonStyle.primary)
+    async def seehand_callback(self, button, interaction):
+        game = load(interaction.channel)
+        await interaction.response.send_message(content=game["hand" + str(interaction.user)[0:-5].lower()], ephemeral=True)
 
-    @discord.ui.button(label="See", style=discord.ButtonStyle.primary)
-    async def see_callback(self, button, interaction):
-        await interaction.response.edit_message(view = seeBoard())
+    @discord.ui.button(label="See deck", style=discord.ButtonStyle.primary)
+    async def seedeck_callback(self, button, interaction):
+        game = load(interaction.channel)
+        await interaction.response.send_message(content=game["deck" + str(interaction.user)[0:-5].lower()], ephemeral=True)
 
     @discord.ui.button(label="Play", style=discord.ButtonStyle.primary)
     async def play_callback(self, button, interaction):
@@ -178,36 +183,31 @@ class buttonBoard(discord.ui.View):
         save(interaction.channel, game)
         await interaction.response.edit_message(content=makeBoardASCII(interaction.channel))
 
-    @discord.ui.button(label="Deck", style=discord.ButtonStyle.primary)
-    async def deck_callback(self, button, interaction):
-        await interaction.response.edit_message(view=editDeck())
-
     @discord.ui.button(label="Magic", style=discord.ButtonStyle.primary)
     async def magic_callback(self, button, interaction):
         await interaction.response.edit_message(view=editMagic())
 
     @discord.ui.button(label="Damage", style=discord.ButtonStyle.primary)
     async def damage_callback(self, button, interaction):
+        await interaction.response.edit_message(view=damageView())
+
+    @discord.ui.button(label="Search", style=discord.ButtonStyle.primary)
+    async def search_callback(self, button, interaction):
+        modal = searchModal(title="Search for a card.")
+        await interaction.response.send_modal(modal)
+
+    @discord.ui.button(label="Edit deck", style=discord.ButtonStyle.primary)
+    async def deck_callback(self, button, interaction):
         await interaction.response.edit_message(view=editDeck())
 
     @discord.ui.button(label="End Turn", style=discord.ButtonStyle.danger, row=2)
     async def endturn_callback(self, button, interaction):
-        pass
-
-class seeBoard(discord.ui.View):
-    @discord.ui.button(label="Hand", style=discord.ButtonStyle.primary)
-    async def seehand(self, button, interaction):
         game = load(interaction.channel)
-        await interaction.response.send_message(game['hand' + str(interaction.user)[0:-5].lower()], ephemeral = True)
-
-    @discord.ui.button(label="Deck", style=discord.ButtonStyle.primary)
-    async def seedeck(self, button, interaction):
-        game = load(interaction.channel)
-        await interaction.response.send_message(game['deck' + str(interaction.user)[0:-5].lower()], ephemeral = True)
-        
-    @discord.ui.button(label="Escape", style=discord.ButtonStyle.danger)
-    async def escape_callback(self, button, interaction):
-        await interaction.response.edit_message(view=buttonBoard())
+        player = str(interaction.user)[0:-5].lower()
+        game["maxmagic" + player] += 1
+        game["magic" + player] = game["maxmagic" + player]
+        save(interaction.channel, game)
+        await interaction.response.edit_message(content=makeBoardASCII(interaction.channel))
 
 class addDeckModal(discord.ui.Modal):
     def __init__(self, *args, **kwargs):
@@ -277,10 +277,7 @@ class magicModal(discord.ui.Modal):
     async def callback(self, interaction):
         game = load(interaction.channel)
         player = str(interaction.user)[0:-5].lower()
-        if "-" in self.children[0].value:
-            game["magic" + player] -= int(self.children[0].value[1:])
-        else:
-            game["magic" + player] += int(self.children[0].value[1:])
+        game["magic" + player] += int(self.children[0].value)
         save(interaction.channel, game)
         await interaction.response.edit_message(content=makeBoardASCII(interaction.channel), view=buttonBoard())
 
@@ -292,12 +289,65 @@ class magicMaxModal(discord.ui.Modal):
     async def callback(self, interaction):
         game = load(interaction.channel)
         player = str(interaction.user)[0:-5].lower()
-        if "-" in self.children[0].value:
-            game["maxmagic" + player] -= int(self.children[0].value[1:])
-        else:
-            game["maxmagic" + player] += int(self.children[0].value[1:])
+        game["maxmagic" + player] += int(self.children[0].value)
         save(interaction.channel, game)
         await interaction.response.edit_message(content=makeBoardASCII(interaction.channel), view=buttonBoard())
+
+class damageView(discord.ui.View):
+    @discord.ui.button(label="Yourself", style=discord.ButtonStyle.primary)
+    async def yourself_callback(self, button, interaction):
+        modal = youDamageModal(title="Deal damage to yourself.")
+        await interaction.response.send_modal(modal)
+    
+    @discord.ui.button(label="Enemy", style=discord.ButtonStyle.primary)
+    async def enemy_callback(self, button, interaction):
+        modal = enemyDamageModal(title="Deal damage to your enemy.")
+        await interaction.response.send_modal(modal)
+
+class youDamageModal(discord.ui.Modal):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.add_item(discord.ui.InputText(label="Type the damage you want to deal."))
+
+    async def callback(self, interaction):
+        game = load(interaction.channel)
+        player = str(interaction.user)[0:-5].lower()
+        game["hp" + player] += int(self.children[0].value)
+        save(interaction.channel, game)
+        await interaction.response.edit_message(content=makeBoardASCII(interaction.channel))
+
+class enemyDamageModal(discord.ui.Modal):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.add_item(discord.ui.InputText(label="Type the damage you want to deal."))
+
+    async def callback(self, interaction):
+        game = load(interaction.channel)
+        player = str(interaction.user)[0:-5].lower()
+        p1, p2 = str(interaction.channel).split("-")
+        if player == p1:
+            enemy = p2
+        else: 
+            enemy = p1
+        game["hp" + enemy] -= int(self.children[0].value)
+        save(interaction.channel, game)
+        await interaction.response.edit_message(content=makeBoardASCII(interaction.channel))
+
+class searchModal(discord.ui.Modal):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.add_item(discord.ui.InputText(label="Type the card you want to search."))
+
+    async def callback(self, interaction):
+        game = load(interaction.channel)
+        player = str(interaction.user)[0:-5].lower()
+        if self.children[0].value in game["deck" + player]:
+            game["deck" + player].remove(self.children[0].value)
+            game["hand" + player].append(self.children[0].value)
+            save(interaction.channel, game)
+            await interaction.response.edit_message(content=makeBoardASCII(interaction.channel))
+        else:
+            await interaction.response.send_message(content="That card is not in your deck.")
 
 @bot.slash_command()
 async def start(ctx):
