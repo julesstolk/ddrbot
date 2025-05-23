@@ -6,7 +6,7 @@ import os
 import discord
 from discord.ext import commands
 import random
-bot = discord.Bot()
+
 bot = commands.Bot(command_prefix="=")
 playerselectoptions = [discord.SelectOption(label="Don't press please :D", description="Placeholder else the code'll break")]
 game = {}
